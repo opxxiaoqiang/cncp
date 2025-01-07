@@ -42,6 +42,7 @@ dependencies = [
 
   # modeld
   "onnx >= 1.14.0",
+  "onnxruntime >=1.16.3",
   "llvmlite",
 
   # logging
@@ -103,6 +104,7 @@ dev = [
   "lru-dict",
   "matplotlib",
   "parameterized >=0.8, <0.9",
+  #"pprofile",
   "pyautogui",
   "pyopencl; platform_machine != 'aarch64'", # broken on arm64
   "pytools < 2024.1.11; platform_machine != 'aarch64'", # pyopencl use a broken version
