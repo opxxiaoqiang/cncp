@@ -7,6 +7,7 @@ from opendbc.car.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
+ButtonType = structs.CarState.ButtonEvent.Type
 
 
 class CarController(CarControllerBase):
@@ -15,15 +16,23 @@ class CarController(CarControllerBase):
     self.apply_steer_last = 0
     self.packer = CANPacker(dbc_names[Bus.pt])
     self.brake_counter = 0
-    
+
     self.activateCruise = 0
     self.speed_from_pcm = 1
+    self.is_metric = False  # 默认为英制，会在update中更新
 
   def update(self, CC, CS, now_nanos):
 
     if self.frame % 50 == 0:
       params = Params()
       self.speed_from_pcm = params.get_int("SpeedFromPCM")
+      # 尝试从CS获取is_metric属性或从CS.out推断
+      if hasattr(CS, 'is_metric'):
+        self.is_metric = CS.is_metric
+      else:
+        # 根据车速估计单位系统
+        # 一般情况下，如果车速数值较大，可能使用公制单位
+        self.is_metric = True
 
     can_sends = []
 
@@ -45,18 +54,62 @@ class CarController(CarControllerBase):
         # Cancel Stock ACC if it's enabled while OP is disengaged
         # Send at a rate of 10hz until we sync with stock ACC state
         can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, CS.crz_btns_counter, Buttons.CANCEL))
-    elif False:
+    else:
       self.brake_counter = 0
       if CC.cruiseControl.resume and self.frame % 5 == 0:
         # Mazda Stop and Go requires a RES button (or gas) press if the car stops more than 3 seconds
         # Send Resume button when planner wants car to move
         can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, CS.crz_btns_counter, Buttons.RESUME))
-    else:
-      if self.frame % 20 == 0:
-        spam_button = self.make_spam_button(CC, CS)
-        if spam_button > 0:
-          self.brake_counter = 0
-          can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.frame // 10, spam_button))
+      # 使用CSLC风格的速度控制，当speed_from_pcm不等于1时启用
+      elif self.speed_from_pcm != 1:
+        # 获取巡航和距离按钮状态
+        cruise_buttons = Buttons.NONE
+        distance_button = 0
+
+        # 尝试从CS获取cruise_buttons
+        if hasattr(CS, 'cruise_buttons'):
+          cruise_buttons = CS.cruise_buttons
+        else:
+          # 尝试从buttonEvents推断按钮状态
+          for btn in CS.out.buttonEvents:
+            if btn.type in [ButtonType.accelCruise, ButtonType.decelCruise, ButtonType.resumeCruise, ButtonType.cancel]:
+              if btn.type == ButtonType.accelCruise:
+                cruise_buttons = Buttons.SET_PLUS
+              elif btn.type == ButtonType.decelCruise:
+                cruise_buttons = Buttons.SET_MINUS
+              elif btn.type == ButtonType.resumeCruise:
+                cruise_buttons = Buttons.RESUME
+              elif btn.type == ButtonType.cancel:
+                cruise_buttons = Buttons.CANCEL
+              break
+
+        # 尝试从CS获取distance_button
+        if hasattr(CS, 'distance_button'):
+          distance_button = CS.distance_button
+
+        # 只有在未检测到巡航按钮按下、未踩油门、未按距离按钮时，才进行速度控制
+        if CC.enabled and self.frame % 10 == 0 and cruise_buttons == Buttons.NONE and not CS.out.gasPressed and not distance_button:
+          hud_v_cruise = CC.hudControl.setSpeed
+          # 设置最大速度限制
+          if hud_v_cruise > 35:  # 最大35m/s约等于126km/h或78mph
+            hud_v_cruise = 35
+
+          # 获取加速度值
+          accel = 0
+          if hasattr(CC.actuators, 'accel'):
+            accel = CC.actuators.accel
+
+          # 使用新添加的函数控制车速
+          speed_cmds = mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, hud_v_cruise, CS.out.vEgo, self.is_metric, accel)
+          if speed_cmds:  # 确保返回的命令列表不为空
+            can_sends.extend(speed_cmds)
+      else:
+        # 使用原始的按钮控制方法
+        if self.frame % 20 == 0:
+          spam_button = self.make_spam_button(CC, CS)
+          if spam_button > 0:
+            self.brake_counter = 0
+            can_sends.append(mazdacan.create_button_cmd(self.packer, self.CP, self.frame // 10, spam_button))
 
     self.apply_steer_last = apply_steer
 

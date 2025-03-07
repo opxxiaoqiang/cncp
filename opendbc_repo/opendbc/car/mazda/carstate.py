@@ -26,6 +26,14 @@ class CarState(CarStateBase):
     self.distance_button = 0
     self.pcmCruiseGap = 0 # copy from Hyundai
 
+    # 添加is_metric属性
+    self.is_metric = True  # 默认为公制
+    self.cruise_buttons = Buttons.NONE
+    self.prev_cruise_buttons = Buttons.NONE
+
+    # 添加activateCruise属性，用于记录巡航激活状态
+    self.activateCruise = 0
+
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
@@ -67,6 +75,13 @@ class CarState(CarStateBase):
     can_distance_setting = cp.vl["CRZ_CTRL"]["DISTANCE_SETTING"]
     # 假设最大值为4，使用5减去CAN值来获取正确的显示值
     ret.pcmCruiseGap = 5 - can_distance_setting if 1 <= can_distance_setting <= 4 else can_distance_setting
+
+    # 设置is_metric属性
+    # 在马自达车型中，可以通过多种方式判断单位系统
+    # 1. 检查速度单位
+    # 2. 检查里程单位
+    # 这里我们采用默认公制单位，未来可以添加更精确的检测
+    self.is_metric = True
 
     ret.genericToggle = bool(cp.vl["BLINK_INFO"]["HIGH_BEAMS"])
     ret.leftBlindspot = cp.vl["BSM"]["LEFT_BS_STATUS"] != 0
@@ -113,6 +128,10 @@ class CarState(CarStateBase):
     ret.cruiseState.standstill = cp.vl["PEDALS"]["STANDSTILL"] == 1
     ret.cruiseState.speed = cp.vl["CRZ_EVENTS"]["CRZ_SPEED"] * CV.KPH_TO_MS
 
+    # 添加activateCruise状态
+    # 用于支持make_spam_button函数和CSLC功能
+    ret.activateCruise = bool(cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"]) and not ret.cruiseState.enabled
+
     # stock lkas should be on
     # TODO: is this needed?
     ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
@@ -143,12 +162,15 @@ class CarState(CarStateBase):
     self.lkas_enabled = not self.lkas_disabled
 
     # TODO: add button types for inc and dec
-    #ret.buttonEvents = create_button_events(self.distance_button, prev_distance_button, {1: ButtonType.gapAdjustCruise})
     ret.buttonEvents = [
       *create_button_events(self.cruise_buttons, self.prev_cruise_buttons, BUTTONS_DICT),
       *create_button_events(self.distance_button, self.prev_distance_button, {1: ButtonType.gapAdjustCruise}),
       *create_button_events(self.lkas_enabled, self.lkas_previously_enabled, {1: ButtonType.lfaButton}),
     ]
+
+    # 将is_metric和其他控制属性传递给ret对象，以便其他部分可以访问
+    ret.customStockLong = True
+
     return ret
 
   @staticmethod

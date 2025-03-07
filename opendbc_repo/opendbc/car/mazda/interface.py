@@ -26,4 +26,32 @@ class CarInterface(CarInterfaceBase):
 
     ret.centerToFront = ret.wheelbase * 0.41
 
+    # 检查SpeedFromPCM参数是否已设置
+    try:
+      from openpilot.common.params import Params
+      params = Params()
+      speed_from_pcm = params.get_int("SpeedFromPCM")
+
+      # 如果SpeedFromPCM不等于1，启用纵向控制参数
+      if speed_from_pcm != 1:
+        ret.openpilotLongitudinalControl = True
+
+        # 配置纵向控制参数
+        # 这些参数针对马自达车型进行了调整，以实现平稳的加减速
+        ret.longitudinalTuning.deadzoneBP = [0.]
+        ret.longitudinalTuning.deadzoneV = [0.9]  # 允许2mph的速度误差
+        ret.stoppingDecelRate = 4.5  # 10mph/s的减速度
+        ret.longitudinalActuatorDelayLowerBound = 1.
+        ret.longitudinalActuatorDelayUpperBound = 2.
+
+        # 配置PID控制参数
+        ret.longitudinalTuning.kpBP = [8.94, 7.2, 28.]  # 8.94 m/s == 20 mph
+        ret.longitudinalTuning.kpV = [0., 4., 2.]  # 低速时设为0，因为无法在该速度以下驾驶
+        ret.longitudinalTuning.kiBP = [0.]
+        ret.longitudinalTuning.kiV = [0.1]
+    except Exception as e:
+      # 如果出现任何错误，记录错误并保持默认设置
+      print(f"Error setting longitudinal control params: {e}")
+      pass  # 保持默认设置
+
     return ret
