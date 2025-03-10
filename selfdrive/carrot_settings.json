@@ -120,6 +120,19 @@
     },
     {
       "group": "조향튜닝",
+      "name": "CarrotLatControl2",
+      "title": "*당근조향제어2(0)",
+      "descr": "0:Default, 1:당근제어",
+      "egroup": "LAT",
+      "etitle": "*CarrotLatControl2(0)",
+      "edescr": "",
+      "min": 0,
+      "max": 90,
+      "default": 1,
+      "unit": 1
+    },
+    {
+      "group": "조향튜닝",
       "name": "LatMpcPathCost",
       "title": "*LATMPC.PathCost(100)",
       "descr": "경로추종가중치, 높으면 경로우선시함.",

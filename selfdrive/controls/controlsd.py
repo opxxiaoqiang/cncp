@@ -9,6 +9,7 @@ from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper
 from openpilot.common.swaglog import cloudlog
 import numpy as np
+from collections import deque
 
 from opendbc.car.car_helpers import get_car_interface
 from opendbc.car.vehicle_model import VehicleModel
@@ -51,6 +52,10 @@ class Controls:
 
     self.steer_limited_by_controls = False
     self.desired_curvature = 0.0
+
+    self.carrot_filter = 20
+    self.curvature_history = deque(maxlen=self.carrot_filter)
+
 
 
     self.LoC = LongControl(self.CP)
@@ -130,21 +135,50 @@ class Controls:
                                   curve_speed_abs > self.params.get_int("UseLaneLineCurveSpeed"))
     
     steer_actuator_delay = self.params.get_float("SteerActuatorDelay") * 0.01
-    if self.params.get_bool("CarrotLatControl"):
-      model_turn_delay = self.params.get_float("ModelTurnDelay") * 0.01
-      desire_state =  self.sm['modelV2'].meta.desireState
-      if len(desire_state) > 0:
-        turn_state = desire_state[1] + desire_state[2]
-      else:
-        turn_state = 0.0
-      desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay if turn_state < 0.01 else model_turn_delay)
-      self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature, lp.roll)
-    else:
-      if self.lanefull_mode_enabled:
-        desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay)
+    model_turn_delay = self.params.get_float("ModelTurnDelay") * 0.01
+    carrot_lat_control2 = self.params.get_int("CarrotLatControl2")
+    if carrot_lat_control2 == 0:
+      if self.params.get_bool("CarrotLatControl"):        
+        desire_state =  self.sm['modelV2'].meta.desireState
+        if len(desire_state) > 0:
+          turn_state = desire_state[1] + desire_state[2]
+        else:
+          turn_state = 0.0
+        desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay if turn_state < 0.01 else model_turn_delay)
         self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature, lp.roll)
       else:
-        self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature, lp.roll)
+        if self.lanefull_mode_enabled:
+          desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures, steer_actuator_delay)
+          self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature, lp.roll)
+        else:
+          self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature, lp.roll)
+    else:
+      steer_angle_without_offset = math.radians(CS.steeringAngleDeg - lp.angleOffsetDeg)
+      car_curvature = -self.VM.calc_curvature(steer_angle_without_offset, CS.vEgo, lp.roll)
+      t_since_plan = (self.sm.frame - self.sm.recv_frame['lateralPlan']) * DT_CTRL
+      if carrot_lat_control2 != self.carrot_filter:
+        self.carrot_filter = carrot_lat_control2
+        self.curvature_history = deque(maxlen=self.carrot_filter)
+      if len(lat_plan.curvatures) != CONTROL_N:
+        desired_curvature = 0.0
+      else:
+        
+        t0 = steer_actuator_delay + t_since_plan
+        future_times = [t0 + i * DT_CTRL for i in range(self.carrot_filter)]
+        future_curvatures = np.interp(future_times, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+
+        self.curvature_history.append(future_curvatures)
+        if len(self.curvature_history) == self.carrot_filter:
+          avg_curvature_list = [self.curvature_history[i][i] for i in range(self.carrot_filter)]
+          avg_curvature = np.mean(avg_curvature_list)
+          #print(f"t_since_plan = {t_since_plan}, car_curvature = {car_curvature:.5f}, avg_curvature = {avg_curvature:.5f}")
+        else:
+          avg_curvature = future_curvatures[0]
+          
+        #desired_curvature = np.interp(steer_actuator_delay + t_since_plan, ModelConstants.T_IDXS[:CONTROL_N], lat_plan.curvatures)
+        #print(f"t_since_plan = {t_since_plan}, desired_curvature = {car_curvature:.4f}, {desired_curvature:.4f}")
+        desired_curvature = avg_curvature  
+      self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, desired_curvature, lp.roll)
 
     actuators.curvature = float(self.desired_curvature)
     steer, steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,

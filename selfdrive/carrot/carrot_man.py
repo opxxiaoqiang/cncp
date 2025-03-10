@@ -1308,13 +1308,12 @@ class CarrotServ:
     gps_updated_phone = (now - self.last_update_gps_time_phone) < 3
     gps_updated_navi = (now - self.last_update_gps_time_navi) < 3
 
+    bearing = self.nPosAngle
     if gps_updated_phone:
-      bearing = self.nPosAngle
       self.bearing_offset = 0.0
     elif sm.valid[llk]:
       bearing = math.degrees(location.calibratedOrientationNED.value[2])
-    else:
-      bearing = self.nPosAngle
+      self.bearing_offset = 0.0
 
     gpsDelayTimeAdjust = 0.0
     if gps_updated_navi:
@@ -1326,7 +1325,6 @@ class CarrotServ:
       self.vpPosPointLatNavi = location.positionGeodetic.value[0]
       self.vpPosPointLonNavi = location.positionGeodetic.value[1]
       self.last_calculate_gps_time = now #sm.recv_time[llk]
-      self.bearing_offset = 0.0
     elif gps_updated_navi:
       if abs(self.bearing_measured - bearing) < 0.1:
           self.diff_angle_count += 1
@@ -1346,7 +1344,7 @@ class CarrotServ:
     #print(f"dt = {dt:.1f}, {self.vpPosPointLatNavi}, {self.vpPosPointLonNavi}")
     if dt > 5.0:
       self.vpPosPointLat, self.vpPosPointLon = 0.0, 0.0
-    elif dt == 0:
+    elif dt == 0 or True:
       self.vpPosPointLat, self.vpPosPointLon = self.vpPosPointLatNavi, self.vpPosPointLonNavi
     else:
       self.vpPosPointLat, self.vpPosPointLon = self.estimate_position(float(self.vpPosPointLatNavi), float(self.vpPosPointLonNavi), v_ego, bearing_calculated, dt + gpsDelayTimeAdjust)
@@ -1763,7 +1761,7 @@ class CarrotServ:
     if "carrotIndex" in json:
       self.carrotIndex = int(json.get("carrotIndex"))
 
-    print(json)
+    #print(json)
     if self.carrotIndex % 60 == 0 and "epochTime" in json:
       # op는 ntp를 사용하기때문에... 필요없는 루틴으로 보임.
       timezone_remote = json.get("timezone", "Asia/Seoul")
@@ -1871,6 +1869,7 @@ class CarrotServ:
       if "accuracy" in json:
         self.gps_accuracy_phone = float(json.get("accuracy", 0))
         self.nPosSpeed = float(json.get("gps_speed", 0))
+        print(f"phone gps: {self.vpPosPointLatNavi}, {self.vpPosPointLonNavi}, {self.gps_accuracy_phone}, {self.nPosSpeed}")
 
 
 import traceback

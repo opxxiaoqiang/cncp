@@ -232,6 +232,7 @@ inline static std::unordered_map<std::string, uint32_t> keys = {
     {"MaxAngleFrames", PERSISTENT},
     {"SoftHoldMode", PERSISTENT},
     {"CarrotLatControl", PERSISTENT},
+    {"CarrotLatControl2", PERSISTENT},
     {"LatMpcPathCost", PERSISTENT},
     {"LatMpcPathCostTurn", PERSISTENT },
     {"LatMpcMotionCost", PERSISTENT},
