@@ -3,7 +3,6 @@ import json
 import os
 from cereal import car
 from math import fabs, exp
-from panda import Panda
 from openpilot.common.params import Params
 from opendbc.car import get_safety_config, get_friction, structs
 from opendbc.car.common.basedir import BASEDIR
@@ -104,7 +103,7 @@ class CarInterface(CarInterfaceBase):
 
     if PEDAL_MSG in fingerprint[0]:
       ret.enableGasInterceptorDEPRECATED = True
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_GAS_INTERCEPTOR
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.GAS_INTERCEPTOR
 
     if candidate in EV_CAR:
       ret.transmissionType = TransmissionType.direct
@@ -144,7 +143,7 @@ class CarInterface(CarInterfaceBase):
       ret.radarUnavailable = True
       ret.minEnableSpeed = -1.  # engage speed is decided by ASCM
       ret.minSteerSpeed = 30 * CV.MPH_TO_MS
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_SDGM
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.HW_SDGM
 
     else:  # ASCM, OBD-II harness
       ret.openpilotLongitudinalControl = True
@@ -162,7 +161,7 @@ class CarInterface(CarInterfaceBase):
       # TODO: Test for CADILLAC_CT6_ACC
       if ret.enableGasInterceptorDEPRECATED:
         # Need to set ASCM long limits when using pedal interceptor, instead of camera ACC long limits
-        ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_ASCM_LONG
+        ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.HW_ASCM_LONG
 
     # These cars have been put into dashcam only due to both a lack of users and test coverage.
     # These cars likely still work fine. Once a user confirms each car works and a test route is
@@ -332,7 +331,7 @@ class CarInterface(CarInterfaceBase):
 
     if ret.enableGasInterceptorDEPRECATED:
       ret.networkLocation = NetworkLocation.fwdCamera
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.HW_CAM
       ret.minEnableSpeed = -1
       ret.pcmCruise = False
       ret.openpilotLongitudinalControl = True
@@ -340,7 +339,7 @@ class CarInterface(CarInterfaceBase):
 
       if candidate in CC_ONLY_CAR:
         ret.flags |= GMFlags.PEDAL_LONG.value
-        ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_PEDAL_LONG
+        ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.PEDAL_LONG
         # Note: Low speed, stop and go not tested. Should be fairly smooth on highway
         ret.longitudinalTuning.kpBP = [0., 3., 6., 35.]
         ret.longitudinalTuning.kpV = [0.08, 0.175, 0.225, 0.33]
@@ -349,14 +348,14 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kf = 0.25
         ret.stoppingDecelRate = 0.8
       else:  # Pedal used for SNG, ACC for longitudinal control otherwise
-        ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_HW_CAM_LONG
+        ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.HW_CAM_LONG
         ret.startingState = True
         ret.vEgoStopping = 0.25
         ret.vEgoStarting = 0.25
 
     elif candidate in CC_ONLY_CAR:
       ret.flags |= GMFlags.CC_LONG.value
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_CC_LONG
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.GM_CC_LONG
       if experimental_long:
         ret.openpilotLongitudinalControl = True
         ret.flags |= GMFlags.CC_LONG.value
@@ -371,13 +370,13 @@ class CarInterface(CarInterfaceBase):
       ret.longitudinalTuning.kiV = [0., 20., 20.]  # set lower end to 0 since we can't drive below that speed
 
     if candidate in CC_ONLY_CAR:
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_NO_ACC
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.NO_ACC
 
     # Exception for flashed cars, or cars whose camera was removed
     if (ret.networkLocation == NetworkLocation.fwdCamera or candidate in CC_ONLY_CAR) and CAM_MSG not in fingerprint[
       CanBus.CAMERA] and not candidate in SDGM_CAR:
       ret.flags |= GMFlags.NO_CAMERA.value
-      ret.safetyConfigs[0].safetyParam |= Panda.FLAG_GM_NO_CAMERA
+      ret.safetyConfigs[0].safetyParam |= GMSafetyFlags.NO_CAMERA
 
     if ACCELERATOR_POS_MSG not in fingerprint[CanBus.POWERTRAIN]:
       ret.flags |= GMFlags.NO_ACCELERATOR_POS_MSG.value

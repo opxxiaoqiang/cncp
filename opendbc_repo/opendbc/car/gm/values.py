@@ -83,7 +83,13 @@ class CarControllerParams:
 class GMSafetyFlags(IntFlag):
   HW_CAM = 1
   HW_CAM_LONG = 2
-
+  HW_SDGM = 4
+  CC_LONG = 8
+  NO_CAMERA = 16
+  HW_ASCM_LONG = 32
+  NO_ACC = 64
+  PEDAL_LONG = 128  # TODO: This can be inferred
+  GAS_INTERCEPTOR = 256
 
 @dataclass
 class GMCarDocs(CarDocs):
