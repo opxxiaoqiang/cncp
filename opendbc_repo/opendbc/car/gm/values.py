@@ -244,7 +244,7 @@ class CAR(Platforms):
   )
   CHEVROLET_TRAX = GMPlatformConfig(
     [GMCarDocs("Chevrolet TRAX 2024")],
-    CarSpecs(mass=1365, wheelbase=2.7, steerRatio=16.1, centerToFrontRatio=0.4),
+    CarSpecs(mass=1365, wheelbase=2.7, steerRatio=16.1, centerToFrontRatio=0.7),
   )
   CADILLAC_CT6_ACC = GMPlatformConfig(
     [GMCarDocs("CT6-2019 Advanced ACC", "Adaptive Cruise Control (ACC)")],
