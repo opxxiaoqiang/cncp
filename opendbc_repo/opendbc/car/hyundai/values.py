@@ -126,11 +126,11 @@ class HyundaiFlags(IntFlag):
 
   ANGLE_CONTROL = 2 ** 24
 
-  CC_ONLY_CAR = 2 ** 25
-
   FCEV = 2 ** 25
 
   ALT_LIMITS_2 = 2 ** 26
+
+  CC_ONLY_CAR = 2 ** 31
 
 class HyundaiExtFlags(IntFlag):
   HAS_SCC13 = 1
