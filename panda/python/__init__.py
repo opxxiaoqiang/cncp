@@ -250,8 +250,8 @@ class Panda:
     self.can_reset_communications()
 
     # disable automatic CAN-FD switching
-    for bus in range(PANDA_BUS_CNT):
-      self.set_canfd_auto(bus, False)
+    #for bus in range(PANDA_BUS_CNT):
+    #  self.set_canfd_auto(bus, False)
 
     # set CAN speed
     for bus in range(PANDA_BUS_CNT):
