@@ -127,7 +127,7 @@ def upload_folder_to_ftp(local_folder, directory, remote_path):
         with tqdm(total=len(files), desc="Uploading Files", unit="file") as pbar:
             for local_file in files:
                 filename = os.path.basename(local_file)
-                if filename in ['rlog', 'qcamera.ts']:
+                if filename in ['rlog', 'rlog.zst', 'qcamera.ts']:
                   try:
                       with open(local_file, 'rb') as file:
                           ftp.storbinary(f'STOR {filename}', file)
