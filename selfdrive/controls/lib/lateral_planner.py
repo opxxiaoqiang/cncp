@@ -150,11 +150,11 @@ class LateralPlanner:
     self.LP.lane_width_left = md.meta.laneWidthLeft
     self.LP.lane_width_right = md.meta.laneWidthRight
     self.LP.curvature = measured_curvature
-    self.path_xyz = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed)
+    self.path_xyz, self.lanelines_active = self.LP.get_d_path(sm['carState'], self.v_ego, self.t_idxs, self.path_xyz, self.curve_speed)
     if self.LP.lanefull_mode:
       self.plan_yaw, self.plan_yaw_rate = self.LP.calculate_plan_yaw_and_yaw_rate(self.path_xyz)
     self.latDebugText = self.LP.debugText
-    self.lanelines_active = True if self.LP.d_prob > 0.3 and self.LP.lanefull_mode else False
+    #self.lanelines_active = True if self.LP.d_prob > 0.3 and self.LP.lanefull_mode else False
 
     self.path_xyz[:, 1] += self.pathOffset
 

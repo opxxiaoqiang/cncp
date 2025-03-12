@@ -230,7 +230,9 @@ class LanePlanner:
     #  self.lane_width_left_filtered.x, self.lane_width, self.lane_width_right_filtered.x)
 
     adjustLaneTime = self.params.get_int("AdjustLaneTime")
-    if self.lanefull_mode:
+    laneline_active = False
+    if self.lanefull_mode and self.d_prob > 0.3:
+      laneline_active = True
       use_dist_mode = True  ## 아무리생각해봐도.. 같은 방법인듯...
       if use_dist_mode:
         lane_path_y_interp = np.interp(path_xyz[:,0] + v_ego * adjustLaneTime*0.01, self.ll_x, lane_path_y)
@@ -246,7 +248,7 @@ class LanePlanner:
 
     self.offset_total = self.lane_offset_filtered.x
 
-    return path_xyz
+    return path_xyz, laneline_active
 
 
   def calculate_plan_yaw_and_yaw_rate(self, path_xyz):
