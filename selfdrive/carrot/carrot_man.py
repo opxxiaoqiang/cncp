@@ -835,10 +835,8 @@ class CarrotMan:
 
 
   def carrot_curve_speed_params(self):
-    self.autoCurveSpeedLowerLimit = int(self.params.get("AutoCurveSpeedLowerLimit"))
     self.autoCurveSpeedFactor = self.params.get_int("AutoCurveSpeedFactor")*0.01
     self.autoCurveSpeedAggressiveness = self.params.get_int("AutoCurveSpeedAggressiveness")*0.01
-    self.autoCurveSpeedFactorIn = self.autoCurveSpeedAggressiveness - 1.0
 
   def carrot_curve_speed(self, sm):
     self.carrot_curve_speed_params()
@@ -849,34 +847,6 @@ class CarrotMan:
         return 250
 
     return self.vturn_speed(sm['carState'], sm)
-
-    v_ego = sm['carState'].vEgo
-    # 회전속도를 선속도 나누면 : 곡률이 됨. [12:20]은 약 1.4~3.5초 앞의 곡률을 계산함.
-    orientationRates = np.array(sm['modelV2'].orientationRate.z, dtype=np.float32)
-    speed = min(self.turn_speed_last / 3.6, np.clip(v_ego, 0.5, 100.0))
-
-    # 절대값이 가장 큰 요소의 인덱스를 찾습니다.
-    max_index = np.argmax(np.abs(orientationRates[12:20]))
-    # 해당 인덱스의 실제 값을 가져옵니다.
-    max_orientation_rate = orientationRates[12 + max_index]
-    # 부호를 포함한 curvature를 계산합니다.
-    curvature = max_orientation_rate / speed
-
-    curvature = self.curvatureFilter.process(curvature) * self.autoCurveSpeedFactor
-    turn_speed = 250
-
-    if abs(curvature) > 0.0001:
-        # 곡률의 절대값을 사용하여 속도를 계산합니다.
-        base_speed = np.interp(abs(curvature), V_CURVE_LOOKUP_BP, V_CRUVE_LOOKUP_VALS)
-        base_speed = np.clip(base_speed, self.autoCurveSpeedLowerLimit, 255)
-        # 곡률의 부호를 적용하여 turn_speed의 부호를 결정합니다.
-        turn_speed = np.sign(curvature) * base_speed
-
-    self.turn_speed_last = abs(turn_speed)
-    speed_diff = max(0, v_ego * 3.6 - abs(turn_speed))
-    turn_speed = turn_speed - np.sign(curvature) * speed_diff * self.autoCurveSpeedFactorIn
-    #controls.debugText2 = 'CURVE={:5.1f},curvature={:5.4f},mode={:3.1f}'.format(self.turnSpeed_prev, curvature, self.drivingModeIndex)
-    return turn_speed
 
   def vturn_speed(self, CS, sm):
     TARGET_LAT_A = 1.9  # m/s^2
@@ -899,7 +869,8 @@ class CarrotMan:
     adjusted_target_lat_a = TARGET_LAT_A * self.autoCurveSpeedAggressiveness
 
     # Get the target velocity for the maximum curve
-    turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, self.autoCurveSpeedLowerLimit)
+    #turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, self.autoCurveSpeedLowerLimit)
+    turnSpeed = max(abs(adjusted_target_lat_a / max_curve)**0.5  * 3.6, 5)
     turnSpeed = min(turnSpeed, 250)
     return turnSpeed * curv_direction
 
@@ -1030,6 +1001,7 @@ class CarrotServ:
     self.autoTurnControlTurnEnd = self.params.get_int("AutoTurnControlTurnEnd")
     self.gpsDelayTimeAdjust = self.params.get_float("GpsDelayTimeAdjust") * 0.01
     #self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
+    self.autoCurveSpeedLowerLimit = int(self.params.get("AutoCurveSpeedLowerLimit"))
 
 
   def _update_cmd(self):
@@ -1559,7 +1531,7 @@ class CarrotServ:
       (sdi_speed, "hda" if hda_active else "bump" if self.xSpdType == 22 else "section" if self.xSpdType == 4 else "cam"),
     ]
     if self.turnSpeedControlMode in [1,2]:
-      speed_n_sources.append((abs(vturn_speed), "vturn"))
+      speed_n_sources.append((max(abs(vturn_speed), self.autoCurveSpeedLowerLimit), "vturn"))
 
     if self.turnSpeedControlMode == 2:
       if 0 < self.xDistToTurn < 300:
