@@ -9,7 +9,7 @@ LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
 TurnDirection = log.Desire
 
-LANE_CHANGE_SPEED_MIN = 20 * CV.MPH_TO_MS
+LANE_CHANGE_SPEED_MIN = 30 * CV.KPH_TO_MS
 LANE_CHANGE_TIME_MAX = 10.
 
 BLINKER_NONE = 0
@@ -134,6 +134,9 @@ class DesireHelper:
     self.carrot_cmd_index_last = 0
     self.carrot_blinker_state = BLINKER_NONE
 
+    self.turn_desire_state = False
+    self.desire_disable_count = 0
+
   def check_lane_state(self, modeldata):
     self.lane_width_left, self.distance_to_road_edge_left, self.distance_to_road_edge_left_far, lane_prob_left = calculate_lane_width(modeldata.laneLines[0], modeldata.laneLineProbs[0],
                                                                                                  modeldata.laneLines[1], modeldata.roadEdges[0])
@@ -151,7 +154,15 @@ class DesireHelper:
     self.available_right_lane = self.lane_width_right_count.counter > available_count
     self.available_left_edge = self.road_edge_left_count.counter > available_count and self.distance_to_road_edge_left_far > min_lane_width
     self.available_right_edge = self.road_edge_right_count.counter > available_count and self.distance_to_road_edge_right_far > min_lane_width
-   
+
+  def check_desire_state(self, modeldata):
+    desire_state  = modeldata.meta.desireState
+    self.turn_desire_state = (desire_state[1] + desire_state[2]) > 0.1
+    if self.turn_desire_state:
+      self.desire_disable_count = int(2.0/DT_MDL)
+    else:
+      self.desire_disable_count = max(0, self.desire_disable_count - 1)
+    #print(f"desire_state = {desire_state}, turn_desire_state = {self.turn_desire_state}, disable_count = {self.desire_disable_count}")
 
   def update(self, carstate, modeldata, lateral_active, lane_change_prob, carrotMan, radarState):
 
@@ -176,7 +187,7 @@ class DesireHelper:
     elif carrotMan.carrotCmdIndex != self.carrot_cmd_index_last and carrotMan.carrotCmd == "LANECHANGE":
       self.carrot_cmd_index_last = carrotMan.carrotCmdIndex
       self.carrot_lane_change_count = int(0.2 / DT_MDL)
-      print(f"Desire lanechange: {carrotMan.carrotArg}")
+      #print(f"Desire lanechange: {carrotMan.carrotArg}")
       self.carrot_blinker_state = BLINKER_LEFT if carrotMan.carrotArg == "LEFT" else BLINKER_RIGHT
     elif atc_type in ["turn left", "turn right"]:
       if self.atc_active != 2:
@@ -214,6 +225,7 @@ class DesireHelper:
     
     ##### check lane state
     self.check_lane_state(modeldata)
+    self.check_desire_state(modeldata)
     
     if desire_enabled:
       lane_available = self.available_left_lane if blinker_state == BLINKER_LEFT else self.available_right_lane
@@ -243,15 +255,23 @@ class DesireHelper:
       auto_lane_change_available = not auto_lane_change_blocked and lane_availabled and edge_availabled and not side_object_detected
 
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
+      #print("Desire canceled")
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
       self.turn_direction = TurnDirection.none
-    elif desire_enabled and below_lane_change_speed and not carstate.standstill and self.enable_turn_desires:
+    elif desire_enabled and ((below_lane_change_speed and not carstate.standstill and self.enable_turn_desires) or self.turn_desire_state):
+      #print("Desire Turning")
       self.lane_change_state = LaneChangeState.off
       self.turn_direction = TurnDirection.turnLeft if blinker_state == BLINKER_LEFT else TurnDirection.turnRight
       self.lane_change_direction = self.turn_direction #LaneChangeDirection.none
       desire_enabled = False
+    elif self.desire_disable_count > 0: # Turn 후 일정시간 동안 차선변경 불가능
+      #print("Desire after turning")
+      self.lane_change_state = LaneChangeState.off
+      self.lane_change_direction = LaneChangeDirection.none
+      self.turn_direction = TurnDirection.none
     else:
+      #print(f"Desire LaneChange below={below_lane_change_speed}, lane_change_state={self.lane_change_state}, desire_enabled={desire_enabled},{self.prev_desire_enabled} ")
       self.turn_direction = TurnDirection.none
       # LaneChangeState.off
       if self.lane_change_state == LaneChangeState.off and desire_enabled and not self.prev_desire_enabled and not below_lane_change_speed:
