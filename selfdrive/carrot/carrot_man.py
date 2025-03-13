@@ -928,6 +928,7 @@ class CarrotServ:
 
     self.nPosSpeed = 0.0
     self.nPosAngle = 0.0
+    self.nPosAnglePhone = 0.0
 
     self.diff_angle_count = 0
     self.last_calculate_gps_time = 0
@@ -1285,7 +1286,11 @@ class CarrotServ:
       self.bearing_offset = 0.0
     elif sm.valid[llk]:
       bearing = math.degrees(location.calibratedOrientationNED.value[2])
-      self.bearing_offset = 0.0
+      if self.gps_valid:
+        self.bearing_offset = 0.0
+      elif gps_updated_phone:
+        bearing = self.nPosAnglePhone
+        self.bearing_offset = 0.0
 
     gpsDelayTimeAdjust = 0.0
     if gps_updated_navi:
@@ -1293,18 +1298,18 @@ class CarrotServ:
 
     external_gps_update_timedout = not (gps_updated_phone or gps_updated_navi)
     #print(f"gps_valid = {self.gps_valid}, bearing = {bearing:.1f}, pos = {location.positionGeodetic.value[0]:.6f}, {location.positionGeodetic.value[1]:.6f}")
-    if self.gps_valid and external_gps_update_timedout:    # liveLocationKalman일때는 정확하나, livePose일때는 불안정함.
+    if self.gps_valid and external_gps_update_timedout:    # 내부GPS가 자동하고 carrotman으로부터 gps신호가 없는경우
       self.vpPosPointLatNavi = location.positionGeodetic.value[0]
       self.vpPosPointLonNavi = location.positionGeodetic.value[1]
       self.last_calculate_gps_time = now #sm.recv_time[llk]
-    elif gps_updated_navi:
+    elif gps_updated_navi:  # carrot navi로부터 gps신호가 수신되는 경우..
       if abs(self.bearing_measured - bearing) < 0.1:
           self.diff_angle_count += 1
       else:
           self.diff_angle_count = 0
       self.bearing_measured = bearing
 
-      if self.diff_angle_count > 5: # 각도변화가 거의 없을때만 업데이트
+      if self.diff_angle_count > 5: # 조향각도변화가 거의 없을때만 업데이트
         diff_angle = (self.nPosAngle - bearing) % 360
         if diff_angle > 180:
           diff_angle -= 360
@@ -1832,13 +1837,14 @@ class CarrotServ:
       pass
 
     # 3초간 navi 데이터가 없으면, phone gps로 업데이트
-    if (now - self.last_update_gps_time_navi) > 3.0 and "latitude" in json:  
-      self.vpPosPointLatNavi = float(json.get("latitude", self.vpPosPointLatNavi))
-      self.vpPosPointLonNavi = float(json.get("longitude", self.vpPosPointLonNavi))
-      self.nPosAngle = float(json.get("heading", self.nPosAngle))
-      # self.nPosSpeed = self.ve # TODO speed from v_ego
-      self.last_update_gps_time_phone = self.last_calculate_gps_time = now
-      if "accuracy" in json:
+    if "latitude" in json:
+      self.nPosAnglePhone = float(json.get("heading", self.nPosAngle))
+      if (now - self.last_update_gps_time_navi) > 3.0:
+        self.vpPosPointLatNavi = float(json.get("latitude", self.vpPosPointLatNavi))
+        self.vpPosPointLonNavi = float(json.get("longitude", self.vpPosPointLonNavi))
+        self.nPosAngle = self.nPosAnglePhone
+        # self.nPosSpeed = self.ve # TODO speed from v_ego
+        self.last_update_gps_time_phone = self.last_calculate_gps_time = now
         self.gps_accuracy_phone = float(json.get("accuracy", 0))
         self.nPosSpeed = float(json.get("gps_speed", 0))
         print(f"phone gps: {self.vpPosPointLatNavi}, {self.vpPosPointLonNavi}, {self.gps_accuracy_phone}, {self.nPosSpeed}")
