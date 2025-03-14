@@ -459,7 +459,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "BRAKE!",
       "Emergency Braking: Risk of Collision",
       AlertStatus.critical, AlertSize.full,
-      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.none, 2.),
+      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.stopStop, 2.),
     ET.NO_ENTRY: NoEntryAlert("AEB: Risk of Collision"),
   },
 
@@ -468,7 +468,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "BRAKE!",
       "Stock AEB: Risk of Collision",
       AlertStatus.critical, AlertSize.full,
-      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.none, 2.),
+      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.stopStop, 2.),
     ET.NO_ENTRY: NoEntryAlert("Stock AEB: Risk of Collision"),
   },
 
@@ -477,7 +477,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "BRAKE!",
       "Risk of Collision",
       AlertStatus.critical, AlertSize.full,
-      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.warningSoft, 2.),
+      Priority.HIGHEST, VisualAlert.fcw, AudibleAlert.stopStop, 2.),
   },
 
   EventName.ldw: {
