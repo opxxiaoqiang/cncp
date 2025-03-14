@@ -1621,7 +1621,7 @@ class CarrotServ:
     msg.carrotMan.carrotArg = self.carrotArg
     msg.carrotMan.trafficState = self.traffic_state
 
-    msg.carrotMan.xPosSpeed = float(self.nPosSpeed)
+    msg.carrotMan.xPosSpeed = float(v_ego_kph) #float(self.nPosSpeed)
     msg.carrotMan.xPosAngle = float(self.bearing)
     msg.carrotMan.xPosLat = float(self.vpPosPointLat)
     msg.carrotMan.xPosLon = float(self.vpPosPointLon)
