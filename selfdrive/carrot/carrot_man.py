@@ -1288,10 +1288,11 @@ class CarrotServ:
       bearing = math.degrees(location.calibratedOrientationNED.value[2])
       if self.gps_valid:
         self.bearing_offset = 0.0
-      elif gps_updated_phone:
+      elif self.active_carrot > 0:
         bearing = self.nPosAnglePhone
         self.bearing_offset = 0.0
 
+    print(f"bearing = {bearing:.1f}, posA=={self.nPosAngle:.1f}, posP=={self.nPosAnglePhone:.1f}, offset={self.bearing_offset:.1f}, {gps_updated_phone}, {gps_updated_navi}")
     gpsDelayTimeAdjust = 0.0
     if gps_updated_navi:
       gpsDelayTimeAdjust = self.gpsDelayTimeAdjust
