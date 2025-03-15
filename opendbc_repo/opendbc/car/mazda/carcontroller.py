@@ -37,8 +37,6 @@ class CarController(CarControllerBase):
       # 从CS获取activateCruise状态（如果可用）
       if hasattr(CS, 'activateCruise'):
         self.activateCruise = CS.activateCruise
-      elif hasattr(CS.out, 'activateCruise'):
-        self.activateCruise = 1 if CS.out.activateCruise else 0
 
     can_sends = []
 
@@ -175,10 +173,15 @@ class CarController(CarControllerBase):
     # 检查是否可以激活巡航(没有踩刹车或油门)
     cant_activate = CS.out.brakePressed or CS.out.gasPressed
 
+    # 检查巡航是否可用但未启用
+    cruise_available = CS.out.cruiseState.available
+    cruise_enabled = CS.out.cruiseState.enabled
+    should_activate_cruise = cruise_available and not cruise_enabled
+
     # 处理不同场景
     if CC.enabled:
       # 如果巡航未激活但应该激活
-      if not CS.out.cruiseState.enabled:
+      if not cruise_enabled:
         if (hud_control.leadVisible or v_ego_kph > 10.0) and self.activateCruise == 0 and not cant_activate:
           self.activateCruise = 1
           print("RESUME - 激活巡航控制")
@@ -195,7 +198,7 @@ class CarController(CarControllerBase):
         print(f"SET_PLUS target={target}, current={current}")
         return Buttons.SET_PLUS
     # 如果需要激活巡航
-    elif CS.out.activateCruise:
+    elif should_activate_cruise:
       if (hud_control.leadVisible or v_ego_kph > 10.0) and self.activateCruise == 0 and not cant_activate:
         self.activateCruise = 1
         print("RESUME - 激活巡航控制")

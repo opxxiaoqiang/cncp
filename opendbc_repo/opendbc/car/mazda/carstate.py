@@ -131,13 +131,17 @@ class CarState(CarStateBase):
     # 添加activateCruise状态
     # 用于支持make_spam_button函数和CSLC功能
     # 当巡航可用但尚未启用时，activateCruise应该为True
-    ret.activateCruise = bool(cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"]) and not ret.cruiseState.enabled
+    # ret.activateCruise = bool(cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"]) and not ret.cruiseState.enabled
+
+    # 不再尝试设置ret.activateCruise，而是直接更新实例变量
+    cruise_available = bool(cp.vl["CRZ_CTRL"]["CRZ_AVAILABLE"])
+    cruise_enabled = ret.cruiseState.enabled
 
     # 更新实例变量，用于CarController访问
     # activateCruise为0表示已经尝试过激活巡航，为1表示可以尝试激活
-    if ret.activateCruise and self.activateCruise == 0 and ret.vEgo > 5.0 * CV.KPH_TO_MS:  # 只有车速>5km/h才允许激活
+    if cruise_available and not cruise_enabled and self.activateCruise == 0 and ret.vEgo > 5.0 * CV.KPH_TO_MS:  # 只有车速>5km/h才允许激活
         self.activateCruise = 1
-    elif ret.cruiseState.enabled:
+    elif cruise_enabled:
         # 巡航已启用，重置为0以便下次可以再次激活
         self.activateCruise = 0
 
