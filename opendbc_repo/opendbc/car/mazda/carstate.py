@@ -181,8 +181,11 @@ class CarState(CarStateBase):
       *create_button_events(self.lkas_enabled, self.lkas_previously_enabled, {1: ButtonType.lfaButton}),
     ]
 
-    # 将is_metric和其他控制属性传递给ret对象，以便其他部分可以访问
-    ret.customStockLong = True
+    # 不再设置ret.customStockLong，因为这个字段在CarState结构体中不存在
+    # ret.customStockLong = True
+
+    # 我们可以将这个信息保存在类实例中，而不是ret结构体中
+    self.custom_stock_long = True
 
     return ret
 
