@@ -151,46 +151,62 @@ def create_mazda_acc_spam_command(packer, controller, CS, slcSet, Vego, is_metri
 
   # 检查巡航控制是否启用，如果未启用则不进行操作
   if not CS.out.cruiseState.enabled:
+    print("MAZDA_CAN: Cruise control not enabled, skipping speed control")
     return []
 
   MS_CONVERT = CV.MS_TO_KPH if is_metric else CV.MS_TO_MPH
 
   # 获取当前巡航设定速度和目标速度（转换单位）
   speedSetPoint = int(round(CS.out.cruiseState.speed * MS_CONVERT))
-  slcSet = int(round(slcSet * MS_CONVERT))
+  slcSet_converted = int(round(slcSet * MS_CONVERT))
+
+  print(f"MAZDA_CAN: Current set speed={speedSetPoint} {'km/h' if is_metric else 'mph'}, "
+        f"Target speed={slcSet_converted} {'km/h' if is_metric else 'mph'}, "
+        f"Current vehicle speed={int(round(Vego * MS_CONVERT))} {'km/h' if is_metric else 'mph'}")
 
   # 针对减速场景的特殊处理：如果目标速度远低于当前速度，调整目标速度以增加减速度
-  if slcSet + 5 < Vego * MS_CONVERT:
-    slcSet = slcSet - 10  # 降低10以增加减速度，直到差距小于5
+  if slcSet_converted + 5 < Vego * MS_CONVERT:
+    slcSet_adjusted = slcSet_converted - 10  # 降低10以增加减速度，直到差距小于5
+    print(f"MAZDA_CAN: Adjusting target speed for faster deceleration: {slcSet_converted} -> {slcSet_adjusted}")
+    slcSet_converted = slcSet_adjusted
 
   # 根据单位系统对速度值进行取整
   if is_metric:  # 公制单位，按5 km/h取整
-    slcSet = int(round(slcSet/5.0)*5.0)
-    speedSetPoint = int(round(speedSetPoint/5.0)*5.0)
+    slcSet_rounded = int(round(slcSet_converted/5.0)*5.0)
+    speedSetPoint_rounded = int(round(speedSetPoint/5.0)*5.0)
+    print(f"MAZDA_CAN: Rounding speeds to nearest 5km/h: target={slcSet_rounded}, current={speedSetPoint_rounded}")
   else:  # 英制单位，按1 mph取整
-    slcSet = int(round(slcSet))
-    speedSetPoint = int(round(speedSetPoint))
+    slcSet_rounded = int(round(slcSet_converted))
+    speedSetPoint_rounded = int(round(speedSetPoint))
+    print(f"MAZDA_CAN: Rounding speeds to nearest 1mph: target={slcSet_rounded}, current={speedSetPoint_rounded}")
 
   # 设置速度上下限 (根据马自达车辆规格)
   min_speed = 30 if is_metric else 20  # 最低30公里/小时或20英里/小时
   max_speed = 160 if is_metric else 100  # 最高160公里/小时或100英里/小时
 
-  if slcSet < min_speed:
-    slcSet = min_speed
-  elif slcSet > max_speed:
-    slcSet = max_speed
+  if slcSet_rounded < min_speed:
+    print(f"MAZDA_CAN: Target speed below minimum, adjusting: {slcSet_rounded} -> {min_speed}")
+    slcSet_rounded = min_speed
+  elif slcSet_rounded > max_speed:
+    print(f"MAZDA_CAN: Target speed above maximum, adjusting: {slcSet_rounded} -> {max_speed}")
+    slcSet_rounded = max_speed
 
   # 根据目标速度和当前设定速度决定按钮动作
   # 只有当当前设定速度在有效范围内才进行调整
-  if slcSet < speedSetPoint and speedSetPoint >= min_speed:
+  if slcSet_rounded < speedSetPoint_rounded and speedSetPoint_rounded >= min_speed:
     cruiseBtn = Buttons.SET_MINUS  # 需要减速
-  elif slcSet > speedSetPoint and speedSetPoint < max_speed:
+    print(f"MAZDA_CAN: Need to decrease speed: {speedSetPoint_rounded} -> {slcSet_rounded}, pressing SET-")
+  elif slcSet_rounded > speedSetPoint_rounded and speedSetPoint_rounded < max_speed:
     cruiseBtn = Buttons.SET_PLUS   # 需要加速
+    print(f"MAZDA_CAN: Need to increase speed: {speedSetPoint_rounded} -> {slcSet_rounded}, pressing SET+")
   else:
     cruiseBtn = Buttons.NONE       # 速度匹配，无需调整
+    print(f"MAZDA_CAN: Speed already at target or within limits: current={speedSetPoint_rounded}, target={slcSet_rounded}")
 
   # 如果需要按下按钮，生成相应的CAN消息
   if cruiseBtn != Buttons.NONE:
+    print(f"MAZDA_CAN: Generating button command for {cruiseBtn}")
     return [create_button_cmd(packer, controller.CP, controller.frame // 10, cruiseBtn)]
   else:
+    print("MAZDA_CAN: No button command needed")
     return []

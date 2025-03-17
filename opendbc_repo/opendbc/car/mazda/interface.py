@@ -32,8 +32,11 @@ class CarInterface(CarInterfaceBase):
       params = Params()
       speed_from_pcm = params.get_int("SpeedFromPCM")
 
+      print(f"MAZDA_INTERFACE: SpeedFromPCM = {speed_from_pcm}")
+
       # 如果SpeedFromPCM不等于1，启用纵向控制参数
       if speed_from_pcm != 1:
+        print("MAZDA_INTERFACE: Enabling longitudinal control parameters for CSLC mode")
         ret.openpilotLongitudinalControl = True
 
         # 配置纵向控制参数
@@ -49,9 +52,13 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kpV = [0., 4., 2.]  # 低速时设为0，因为无法在该速度以下驾驶
         ret.longitudinalTuning.kiBP = [0.]
         ret.longitudinalTuning.kiV = [0.1]
+
+        print("MAZDA_INTERFACE: Longitudinal control parameters set successfully")
+      else:
+        print("MAZDA_INTERFACE: Using standard control mode (SpeedFromPCM=1)")
     except Exception as e:
       # 如果出现任何错误，记录错误并保持默认设置
-      print(f"Error setting longitudinal control params: {e}")
+      print(f"MAZDA_INTERFACE: Error setting longitudinal control params: {e}")
       pass  # 保持默认设置
 
     return ret

@@ -25,7 +25,15 @@ class CarController(CarControllerBase):
 
     if self.frame % 50 == 0:
       params = Params()
+      old_speed_from_pcm = self.speed_from_pcm
       self.speed_from_pcm = params.get_int("SpeedFromPCM")
+
+      # 添加日志记录，确认参数读取
+      if old_speed_from_pcm != self.speed_from_pcm:
+        print(f"MAZDA: SpeedFromPCM changed from {old_speed_from_pcm} to {self.speed_from_pcm}")
+      elif self.frame == 0:
+        print(f"MAZDA: Initial SpeedFromPCM = {self.speed_from_pcm}")
+
       # 尝试从CS获取is_metric属性或从CS.out推断
       if hasattr(CS, 'is_metric'):
         self.is_metric = CS.is_metric
@@ -69,6 +77,7 @@ class CarController(CarControllerBase):
         if self.speed_from_pcm != 1:
           # 使用CSLC风格的速度控制
           if self.frame % 10 == 0:  # 每10帧执行一次
+            print(f"MAZDA: CSLC control active, frame={self.frame}")
             # 获取巡航和距离按钮状态
             cruise_buttons = Buttons.NONE
             distance_button = 0
@@ -106,13 +115,28 @@ class CarController(CarControllerBase):
               if hasattr(CC.actuators, 'accel'):
                 accel = CC.actuators.accel
 
+              # 记录目标速度和当前速度
+              print(f"MAZDA: Target speed={hud_v_cruise:.1f}m/s, Current speed={CS.out.vEgo:.1f}m/s, is_metric={self.is_metric}")
+
               # 使用新添加的函数控制车速
               speed_cmds = mazdacan.create_mazda_acc_spam_command(self.packer, self, CS, hud_v_cruise, CS.out.vEgo, self.is_metric, accel)
               if speed_cmds:  # 确保返回的命令列表不为空
+                print(f"MAZDA: Sending speed commands: {len(speed_cmds)} commands")
                 can_sends.extend(speed_cmds)
+              else:
+                print("MAZDA: No speed commands generated")
+            else:
+              if cruise_buttons != Buttons.NONE:
+                print(f"MAZDA: Cruise button pressed: {cruise_buttons}, skipping CSLC control")
+              if distance_button:
+                print(f"MAZDA: Distance button pressed: {distance_button}, skipping CSLC control")
+          elif self.frame % 100 == 0:  # 每100帧打印一次状态
+            print(f"MAZDA: CSLC mode active, waiting for control cycle. frame={self.frame}")
         else:
           # 使用原始的按钮控制方法
           if self.frame % 20 == 0:  # 每20帧执行一次
+            if self.frame % 100 == 0:  # 每100帧打印一次状态
+              print(f"MAZDA: Standard control mode active, SpeedFromPCM={self.speed_from_pcm}")
             spam_button = self.make_spam_button(CC, CS)
             if spam_button > 0:
               self.brake_counter = 0
