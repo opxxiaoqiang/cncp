@@ -410,7 +410,17 @@ def amap_key_input(postvars):
     token2 = postvars.get("amap_key_val_2").strip()
     params.put("AMapKey1", token)
     params.put("AMapKey2", token2)
-  return token
+    return True
+  except:
+    return False
+
+def tmap_key_input(postvars):
+  try:
+    token = postvars["tmap_key"]
+    params.put("TMapKey", token)
+    return True
+  except:
+    return False
 
 def gcj02towgs84(lng, lat):
   dlat = transform_lat(lng - 105.0, lat - 35.0)
@@ -464,3 +474,28 @@ def store_toggle_values(updated_values):
   #params_memory.put_bool("FrogPilotTogglesUpdated", True)
   #time.sleep(1)
   #params_memory.put_bool("FrogPilotTogglesUpdated", False)
+
+def get_gps_status():
+  try:
+    # 读取GPS状态
+    with open('/data/params/d/LastGPSPosition', 'r') as f:
+      content = f.read().strip()
+      if not content:
+        return {"active": False, "signal": "无信号"}
+      return {
+        "active": True,
+        "signal": "正常"
+      }
+  except:
+    return {"active": False, "signal": "未知"}
+
+def check_network_status():
+  try:
+    # 检查网络连接
+    result = subprocess.run(['ping', '-c', '1', '-W', '1', '8.8.8.8'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return {
+      "connected": result.returncode == 0,
+      "type": "已连接" if result.returncode == 0 else "未连接"
+    }
+  except:
+    return {"connected": False, "type": "未知"}
