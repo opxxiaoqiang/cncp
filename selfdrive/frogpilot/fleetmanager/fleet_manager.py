@@ -380,44 +380,23 @@ def gmap_key_input():
 
 @app.route("/amap_key_input", methods=['GET', 'POST'])
 def amap_key_input():
-    if request.method == 'POST':
-        postvars = request.form.to_dict()
-        fleet.amap_key_input(postvars)
-        return redirect(url_for('amap_key_input'))
-    else:
-        amap_key, amap_key_2 = fleet.get_amap_key()
-        return render_template("amap_key_input.html", amap_key=amap_key, amap_key_2=amap_key_2)
-
-@app.route("/tmap_key_input", methods=['GET', 'POST'])
-def tmap_key_input():
-    if request.method == 'POST':
-        postvars = request.form.to_dict()
-        fleet.tmap_key_input(postvars)
-        return redirect(url_for('tmap_key_input'))
-    else:
-        tmap_key = fleet.get_tmap_key()
-        return render_template("tmap_key_input.html", tmap_key=tmap_key)
+  if request.method == 'POST':
+    postvars = request.form.to_dict()
+    fleet.amap_key_input(postvars)
+    return redirect(url_for('amap_addr_input'))
+  else:
+    return render_template("amap_key_input.html")
 
 @app.route("/amap_addr_input", methods=['GET', 'POST'])
 def amap_addr_input():
-    if request.method == 'POST':
-        postvars = request.form.to_dict()
-        fleet.nav_confirmed(postvars)
-        return redirect(url_for('amap_addr_input'))
-    else:
-        lon, lat = fleet.get_last_lon_lat()
-        amap_key, amap_key_2 = fleet.get_amap_key()
-        return render_template("amap_addr_input.html", lon=lon, lat=lat, amap_key=amap_key, amap_key_2=amap_key_2)
-
-@app.route("/tmap_addr_input", methods=['GET', 'POST'])
-def tmap_addr_input():
-    if request.method == 'POST':
-        postvars = request.form.to_dict()
-        fleet.nav_confirmed(postvars)
-        return redirect(url_for('tmap_addr_input'))
-    else:
-        lon, lat = fleet.get_last_lon_lat()
-        return render_template("tmap_addr_input.html", lon=lon, lat=lat)
+  if request.method == 'POST':
+    postvars = request.form.to_dict()
+    fleet.nav_confirmed(postvars)
+    return redirect(url_for('amap_addr_input'))
+  else:
+    lon, lat = fleet.get_last_lon_lat()
+    amap_key, amap_key_2 = fleet.get_amap_key()
+    return render_template("amap_addr_input.html", lon=lon, lat=lat, amap_key=amap_key, amap_key_2=amap_key_2)
 
 @app.route("/CurrentStep.json", methods=['GET'])
 def find_CurrentStep():
@@ -473,34 +452,6 @@ def store_toggle_values_route():
     return jsonify({"message": "Values updated successfully"}), 200
   except Exception as e:
     return jsonify({"error": "Failed to update values", "details": str(e)}), 400
-
-@app.route("/get_nav_status", methods=['GET'])
-def get_nav_status():
-    nav_active = fleet.get_nav_active()
-    return jsonify({
-        "active": nav_active
-    })
-
-@app.route("/get_system_status", methods=['GET'])
-def get_system_status():
-    nav_active = fleet.get_nav_active()
-    gps_status = fleet.get_gps_status()
-    network_status = fleet.check_network_status()
-
-    return jsonify({
-        "nav_status": {
-            "active": nav_active,
-            "state": "导航中" if nav_active else "待机"
-        },
-        "gps_status": {
-            "active": gps_status["active"],
-            "signal": gps_status["signal"]
-        },
-        "network_status": {
-            "connected": network_status["connected"],
-            "type": network_status["type"]
-        }
-    })
 
 @app.route("/carinfo")
 def carinfo():
